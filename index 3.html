@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wardeck — prototype 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --slate:#20262a;
+  --slate-2:#2b3339;
+  --slate-3:#39434a;
+  --edge:#151a1d;
+  --paper:#e7e1d2;
+  --paper-2:#d6cfbc;
+  --ink:#262521;
+  --ink-soft:#6a675e;
+  --red:#b8453a;
+  --red-dk:#8a2f27;
+  --blue:#3a6d94;
+  --blue-dk:#27506f;
+  --gold:#d9b24c;
+  --ok:#7fa65a;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:var(--slate);
+  color:var(--paper);
+  font-family:'Barlow',system-ui,-apple-system,sans-serif;
+  font-size:15px;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+
+/* ---------- header ---------- */
+#hud{
+  display:flex;align-items:center;gap:18px;
+  padding:8px 14px;
+  background:var(--slate-2);
+  border-bottom:1px solid var(--edge);
+  flex:0 0 auto;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:17px;
+}
+#sideBadge{
+  display:flex;align-items:center;gap:8px;
+  font-weight:600;font-size:19px;letter-spacing:.3px;
+}
+#sideDot{width:13px;height:13px;border-radius:3px;box-shadow:0 0 0 2px rgba(0,0,0,.35)}
+.stat{display:flex;align-items:baseline;gap:5px;color:#a8b2b8}
+.stat b{color:var(--paper);font-weight:600;font-size:19px}
+#hud .spacer{flex:1}
+button{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:16px;font-weight:600;letter-spacing:.3px;
+  background:var(--slate-3);color:var(--paper);
+  border:1px solid var(--edge);border-radius:4px;
+  padding:6px 14px;cursor:pointer;
+}
+button:hover:not(:disabled){background:#485560}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#endTurn{background:var(--gold);color:#241f10;border-color:#8f7326}
+#endTurn:hover{background:#e8c264}
+
+/* ---------- board ---------- */
+#boardWrap{
+  flex:1 1 auto;position:relative;min-height:0;
+  display:flex;align-items:center;justify-content:center;
+  background:
+    radial-gradient(ellipse at 50% 40%, #2b3339 0%, #1a1f22 70%);
+  padding:10px;
+}
+canvas{max-width:100%;max-height:100%;image-rendering:auto}
+#tip{
+  position:absolute;left:12px;bottom:10px;
+  font-size:13px;color:#8d979d;pointer-events:none;
+  max-width:52ch;line-height:1.35;
+}
+#log{
+  position:absolute;right:12px;top:10px;
+  width:210px;font-size:13px;line-height:1.4;
+  color:#9aa4aa;text-align:right;pointer-events:none;
+}
+#log div{opacity:.55}
+#log div:first-child{opacity:1;color:var(--paper)}
+
+/* ---------- hand ---------- */
+#handBar{
+  flex:0 0 auto;background:var(--slate-2);
+  border-top:1px solid var(--edge);
+  padding:9px 12px 12px;
+}
+#handRow{display:flex;gap:9px;justify-content:center;align-items:flex-end;min-height:132px}
+.card{
+  width:112px;height:126px;flex:0 0 auto;
+  background:linear-gradient(#f0ebde,var(--paper) 55%,var(--paper-2));
+  color:var(--ink);border-radius:5px;
+  border:1px solid #b3aa93;
+  box-shadow:0 3px 0 #171c1f, 0 6px 12px rgba(0,0,0,.4);
+  cursor:pointer;position:relative;overflow:hidden;
+  display:flex;flex-direction:column;
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.card:hover{transform:translateY(-6px)}
+.card.sel{transform:translateY(-12px);box-shadow:0 3px 0 #171c1f,0 0 0 2px var(--gold),0 10px 18px rgba(0,0,0,.5)}
+.card.dead{filter:grayscale(.65) brightness(.82);cursor:default}
+.card.dead:hover{transform:none}
+.card .stripe{height:6px;flex:0 0 auto}
+.card .nm{
+  font-family:'Barlow Condensed',sans-serif;font-weight:600;
+  font-size:17px;line-height:1.05;padding:7px 8px 4px;
+}
+.card .cls{font-size:11.5px;color:var(--ink-soft);padding:0 8px 6px}
+.card .modes{margin-top:auto;padding:0 8px 8px;font-size:12.5px;line-height:1.5}
+.card .modes span{display:block;border-top:1px solid rgba(0,0,0,.13);padding-top:3px}
+#handMeta{text-align:center;font-family:'Barlow Condensed',sans-serif;color:#8d979d;font-size:14px;margin-top:7px}
+
+/* ---------- overlays ---------- */
+.veil{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;
+  background:rgba(14,18,20,.93);z-index:20;text-align:center;padding:24px;
+}
+.veil h1{
+  font-family:'Barlow Condensed',sans-serif;font-weight:600;
+  font-size:34px;margin:0;letter-spacing:.5px;
+}
+.veil p{margin:0;color:#98a2a8;max-width:44ch;line-height:1.5}
+.hidden{display:none !important}
+#actionStrip{
+  position:absolute;left:50%;transform:translateX(-50%);bottom:10px;
+  display:flex;gap:7px;z-index:10;
+}
+#actionStrip button{background:var(--slate-2);border-color:#0e1214}
+#actionStrip button.go{background:var(--ok);color:#16210d;border-color:#4d6b33}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div id="sideBadge"><span id="sideDot"></span><span id="sideName">Red</span></div>
+    <div class="stat">Turn <b id="turnNo">1</b></div>
+    <div class="stat">Plays left <b id="playsLeft">3</b></div>
+    <div class="stat">Hand <b id="handCount">0/4</b></div>
+    <div class="stat">Cities <b id="cityCount">0</b></div>
+    <div class="stat">Draw <b id="drawCount">10</b></div>
+    <div class="stat">Discard <b id="discCount">0</b></div>
+    <div class="spacer"></div>
+    <button id="newGame">New game</button>
+    <button id="endTurn">End turn</button>
+  </div>
+
+  <div id="boardWrap">
+    <canvas id="board"></canvas>
+    <div id="log"></div>
+    <div id="tip"></div>
+    <div id="actionStrip" class="hidden"></div>
+    <div id="handoff" class="veil hidden">
+      <h1 id="handoffName">Red's turn</h1>
+      <p id="handoffSub">Pass the device. Your hand stays hidden until you're ready.</p>
+      <button id="handoffGo">Start turn</button>
+    </div>
+    <div id="gameOver" class="veil hidden">
+      <h1 id="goName">Red wins</h1>
+      <p id="goSub"></p>
+      <button id="goAgain">Play again</button>
+    </div>
+  </div>
+
+  <div id="handBar">
+    <div id="handRow"></div>
+    <div id="handMeta"></div>
+  </div>
+</div>
+<script id="engine">
+/* =========================================================================
+   WARDECK ENGINE — pure rules, zero DOM. Everything here is testable
+   headlessly. Do not reference document/window inside this block.
+   ========================================================================= */
+var WD = (function () {
+'use strict';
+
+/* ---- static data --------------------------------------------------- */
+
+var TERRAIN = {
+  plain:  { name:'Plain',  def:0, cost:1 },
+  forest: { name:'Forest', def:2, cost:2 },
+  city:   { name:'City',   def:3, cost:1 },
+  hq:     { name:'HQ',     def:4, cost:1 }
+};
+
+var UNITS = {
+  infantry: { name:'Infantry', move:3, maxHp:10, captures:true,
+              dmg:{ infantry:5, tank:1 } },
+  tank:     { name:'Tank',     move:6, maxHp:10, captures:false,
+              dmg:{ infantry:8, tank:5 } }
+};
+
+// A card names a unit CLASS, not an individual unit.
+var CARDS = {
+  inf_advance:  { name:'Infantry Advance', cls:'infantry',
+                  modes:['move','attack','capture'], moveMult:1 },
+  tank_advance: { name:'Tank Advance', cls:'tank',
+                  modes:['move','attack'], moveMult:1 },
+  command:      { name:'Command', cls:'any',
+                  modes:['move','draw'], moveMult:0.5 }
+};
+
+var CAPTURE_TARGET = 20;
+var BASE_HAND      = 4;   // +1 per city held
+var PLAYS_PER_TURN = 3;
+
+// '.' plain  'F' forest  'C' city  'R' red HQ  'B' blue HQ
+// 12 x 8, 180-degree rotationally symmetric.
+var MAP_ROWS = [
+  '....F..F....',
+  '..........B.',
+  '.F.C.FF.C...',
+  '...........F',
+  'F...........',
+  '...C.FF.C.F.',
+  '.R..........',
+  '....F..F....'
+];
+
+var START_UNITS = [
+  { owner:0, type:'infantry', x:2, y:6 },
+  { owner:0, type:'infantry', x:2, y:5 },
+  { owner:0, type:'infantry', x:1, y:4 },
+  { owner:0, type:'infantry', x:2, y:7 },
+  { owner:0, type:'tank',     x:3, y:6 },
+  { owner:0, type:'tank',     x:3, y:7 },
+  { owner:1, type:'infantry', x:9, y:1 },
+  { owner:1, type:'infantry', x:9, y:2 },
+  { owner:1, type:'infantry', x:10, y:3 },
+  { owner:1, type:'infantry', x:9, y:0 },
+  { owner:1, type:'tank',     x:8, y:1 },
+  { owner:1, type:'tank',     x:8, y:0 }
+];
+
+var SIDES = [
+  { name:'Red',  key:'red'  },
+  { name:'Blue', key:'blue' }
+];
+
+/* ---- rng ------------------------------------------------------------ */
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function shuffle(arr, rnd) {
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(rnd() * (i + 1));
+    var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  return arr;
+}
+
+/* ---- construction --------------------------------------------------- */
+
+function makeTiles() {
+  var tiles = [], y, x;
+  for (y = 0; y < MAP_ROWS.length; y++) {
+    tiles[y] = [];
+    for (x = 0; x < MAP_ROWS[y].length; x++) {
+      var c = MAP_ROWS[y][x];
+      var t = { terrain:'plain', owner:null, capBy:null, capProg:0, x:x, y:y };
+      if (c === 'F') t.terrain = 'forest';
+      else if (c === 'C') t.terrain = 'city';
+      else if (c === 'R') { t.terrain = 'hq'; t.owner = 0; }
+      else if (c === 'B') { t.terrain = 'hq'; t.owner = 1; }
+      tiles[y][x] = t;
+    }
+  }
+  return tiles;
+}
+
+// The deck IS the army: each unit contributes its cards.
+// Infantry -> 1 card. Tank -> 2 cards. Plus 2 Command cards per player.
+function unitCardCount(type) { return type === 'tank' ? 2 : 1; }
+function unitCardKey(type)   { return type === 'tank' ? 'tank_advance' : 'inf_advance'; }
+
+function createGame(opts) {
+  opts = opts || {};
+  var seed = (opts.seed === undefined) ? 12345 : opts.seed;
+  var g = {
+    seed: seed,
+    rnd: mulberry32(seed),
+    w: MAP_ROWS[0].length,
+    h: MAP_ROWS.length,
+    tiles: makeTiles(),
+    units: [],
+    nextUid: 1,
+    turn: 1,
+    current: 0,
+    lastProgressTurn: 1,
+    winner: null,
+    winReason: '',
+    log: [],
+    players: [newPlayer(0), newPlayer(1)]
+  };
+
+  START_UNITS.forEach(function (s) {
+    g.units.push({
+      uid: g.nextUid++, owner: s.owner, type: s.type,
+      x: s.x, y: s.y, hp: UNITS[s.type].maxHp, actedTurn: -1
+    });
+  });
+
+  // Build each player's starting deck from the units they own.
+  [0, 1].forEach(function (p) {
+    var deck = [];
+    g.units.filter(function (u) { return u.owner === p; })
+      .forEach(function (u) {
+        for (var i = 0; i < unitCardCount(u.type); i++) deck.push(mkCard(g, unitCardKey(u.type)));
+      });
+    deck.push(mkCard(g, 'command'));
+    deck.push(mkCard(g, 'command'));
+    g.players[p].draw = shuffle(deck, g.rnd);
+  });
+
+  beginTurn(g);
+  return g;
+}
+
+function newPlayer(i) {
+  return { id:i, name:SIDES[i].name, draw:[], hand:[], discard:[], playsLeft:PLAYS_PER_TURN };
+}
+
+function mkCard(g, key) {
+  return { uid: g.nextUid++, key: key };
+}
+
+/* ---- lookups -------------------------------------------------------- */
+
+function inBounds(g, x, y) { return x >= 0 && y >= 0 && x < g.w && y < g.h; }
+function tileAt(g, x, y)   { return inBounds(g, x, y) ? g.tiles[y][x] : null; }
+function unitAt(g, x, y) {
+  for (var i = 0; i < g.units.length; i++)
+    if (g.units[i].x === x && g.units[i].y === y) return g.units[i];
+  return null;
+}
+function unitByUid(g, uid) {
+  for (var i = 0; i < g.units.length; i++) if (g.units[i].uid === uid) return g.units[i];
+  return null;
+}
+function cardByUid(g, p, uid) {
+  var h = g.players[p].hand;
+  for (var i = 0; i < h.length; i++) if (h[i].uid === uid) return h[i];
+  return null;
+}
+function citiesOf(g, p) {
+  var n = 0;
+  for (var y = 0; y < g.h; y++) for (var x = 0; x < g.w; x++)
+    if (g.tiles[y][x].terrain === 'city' && g.tiles[y][x].owner === p) n++;
+  return n;
+}
+// Map control is agency: every city you hold is one more card you may hold.
+function handLimit(g, p) { return BASE_HAND + citiesOf(g, p); }
+
+/* ---- turn flow ------------------------------------------------------ */
+
+function beginTurn(g) {
+  var p = g.players[g.current];
+  p.playsLeft = PLAYS_PER_TURN;
+  g.units.forEach(function (u) { if (u.owner === g.current) u.actedTurn = -1; });
+  drawUpTo(g, g.current);
+}
+
+// Draw UP TO the limit — cards you retained reduce what you see.
+function drawUpTo(g, pi) {
+  var p = g.players[pi], lim = handLimit(g, pi), guard = 0;
+  while (p.hand.length < lim && guard++ < 200) {
+    if (!p.draw.length) {
+      if (!p.discard.length) break;
+      p.draw = shuffle(p.discard, g.rnd);
+      p.discard = [];
+      logMsg(g, p.name + ' reshuffles');
+    }
+    p.hand.push(p.draw.pop());
+  }
+}
+
+function endTurn(g) {
+  if (g.winner !== null) return g;
+  g.current = 1 - g.current;
+  if (g.current === 0) g.turn++;
+  beginTurn(g);
+  if (checkWin(g) === null && g.turn - g.lastProgressTurn >= STALE_TURNS) {
+    g.winner = -1;
+    g.winReason = 'stalemate — no losses or capture progress in ' + STALE_TURNS + ' turns';
+  }
+  return g;
+}
+
+function logMsg(g, s) { g.log.unshift(s); if (g.log.length > 8) g.log.pop(); }
+
+// Anything that moves the game toward an ending: a kill, or capture progress.
+function noteProgress(g) { g.lastProgressTurn = g.turn; }
+
+// Found by fuzzing: if both sides lose every infantry, nobody can capture and
+// nobody can be forced to engage, and the game runs forever. Production will
+// mostly solve this later (you rebuild infantry), but a game that can reach an
+// unresolvable position needs a real terminal rule, not a turn limit.
+var STALE_TURNS = 10;
+
+/* ---- legality ------------------------------------------------------- */
+
+function cardDef(card) { return CARDS[card.key]; }
+
+function unitMatches(card, unit) {
+  var d = cardDef(card);
+  return d.cls === 'any' || d.cls === unit.type;
+}
+
+function eligibleUnits(g, card) {
+  return g.units.filter(function (u) {
+    return u.owner === g.current && u.actedTurn !== g.turn && unitMatches(card, u);
+  });
+}
+
+// Dijkstra-ish BFS over terrain cost. Enemies block; friendlies are passable
+// but you cannot stop on them.
+function legalMoves(g, unit, card) {
+  var d = cardDef(card);
+  if (d.modes.indexOf('move') < 0) return [];
+  var budget = Math.floor(UNITS[unit.type].move * d.moveMult);
+  if (budget < 1) return [];
+
+  var best = {}, out = [], frontier = [{ x:unit.x, y:unit.y, c:0 }];
+  best[unit.x + ',' + unit.y] = 0;
+  var dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+
+  while (frontier.length) {
+    frontier.sort(function (a, b) { return a.c - b.c; });
+    var cur = frontier.shift();
+    if (cur.c > best[cur.x + ',' + cur.y]) continue;
+    for (var i = 0; i < 4; i++) {
+      var nx = cur.x + dirs[i][0], ny = cur.y + dirs[i][1];
+      if (!inBounds(g, nx, ny)) continue;
+      var occ = unitAt(g, nx, ny);
+      if (occ && occ.owner !== unit.owner) continue;          // enemy blocks
+      var cost = TERRAIN[g.tiles[ny][nx].terrain].cost;
+      var nc = cur.c + cost;
+      if (nc > budget) continue;
+      var k = nx + ',' + ny;
+      if (best[k] !== undefined && best[k] <= nc) continue;
+      best[k] = nc;
+      frontier.push({ x:nx, y:ny, c:nc });
+    }
+  }
+  for (var key in best) {
+    var pr = key.split(','), x = +pr[0], y = +pr[1];
+    if (x === unit.x && y === unit.y) continue;
+    if (unitAt(g, x, y)) continue;                            // can't stop on a unit
+    out.push({ x:x, y:y, cost:best[key] });
+  }
+  return out;
+}
+
+function legalAttacks(g, unit, card) {
+  var d = cardDef(card);
+  if (d.modes.indexOf('attack') < 0) return [];
+  var dirs = [[1,0],[-1,0],[0,1],[0,-1]], out = [];
+  for (var i = 0; i < 4; i++) {
+    var t = unitAt(g, unit.x + dirs[i][0], unit.y + dirs[i][1]);
+    if (t && t.owner !== unit.owner) out.push(t);
+  }
+  return out;
+}
+
+function canCapture(g, unit, card) {
+  var d = cardDef(card);
+  if (d.modes.indexOf('capture') < 0) return false;
+  if (!UNITS[unit.type].captures) return false;
+  var t = tileAt(g, unit.x, unit.y);
+  if (!t) return false;
+  if (t.terrain !== 'city' && t.terrain !== 'hq') return false;
+  return t.owner !== unit.owner;
+}
+
+/* ---- resolution ----------------------------------------------------- */
+
+function damage(g, atk, def) {
+  var base = UNITS[atk.type].dmg[def.type];
+  var t = tileAt(g, def.x, def.y);
+  var raw = Math.round(base * (atk.hp / UNITS[atk.type].maxHp));
+  return Math.max(1, raw - TERRAIN[t.terrain].def);
+}
+
+function spend(g, card, unit) {
+  var p = g.players[g.current];
+  var i = p.hand.indexOf(card);
+  if (i >= 0) p.hand.splice(i, 1);
+  p.discard.push(card);
+  p.playsLeft--;
+  if (unit) unit.actedTurn = g.turn;
+}
+
+function clearCapture(g, unit) {
+  var t = tileAt(g, unit.x, unit.y);
+  if (t && t.capBy === unit.uid) { t.capBy = null; t.capProg = 0; }
+}
+
+// Removing a unit removes the cards it contributed. Found by fuzzing: if the
+// cards stayed, a player whose infantry were all dead would fill their hand
+// with Infantry cards naming a class they no longer field, and soft-lock the
+// game permanently. It is also the better rule — a shrinking army becomes a
+// more concentrated deck, which pushes against runaway leads.
+// Removal order is draw -> discard -> hand, so we disturb the player's
+// current hand only as a last resort.
+function removeCardsFor(g, unit) {
+  var p = g.players[unit.owner];
+  var key = unitCardKey(unit.type);
+  var n = unitCardCount(unit.type);
+  var piles = [p.draw, p.discard, p.hand];
+  for (var s = 0; s < piles.length && n > 0; s++) {
+    for (var i = piles[s].length - 1; i >= 0 && n > 0; i--) {
+      if (piles[s][i].key === key) { piles[s].splice(i, 1); n--; }
+    }
+  }
+}
+
+function killUnit(g, u) {
+  noteProgress(g);
+  clearCapture(g, u);
+  removeCardsFor(g, u);
+  var i = g.units.indexOf(u);
+  if (i >= 0) g.units.splice(i, 1);
+}
+
+function playMove(g, card, unit, x, y) {
+  if (!validPlay(g, card, unit)) return false;
+  var ok = legalMoves(g, unit, card).some(function (m) { return m.x === x && m.y === y; });
+  if (!ok) return false;
+  clearCapture(g, unit);
+  unit.x = x; unit.y = y;
+  spend(g, card, unit);
+  logMsg(g, UNITS[unit.type].name + ' moves');
+  checkWin(g);
+  return true;
+}
+
+function playAttack(g, card, unit, target) {
+  if (!validPlay(g, card, unit)) return false;
+  if (legalAttacks(g, unit, card).indexOf(target) < 0) return false;
+
+  // Spend BEFORE resolving. If the counterattack kills the attacker we remove
+  // that unit's cards, and this card must already be out of hand or it gets
+  // discarded back in afterwards and the deck drifts out of sync with the army.
+  spend(g, card, unit);
+
+  var dmg = damage(g, unit, target);
+  target.hp -= dmg;
+  var line = UNITS[unit.type].name + ' hits ' + UNITS[target.type].name + ' for ' + dmg;
+
+  if (target.hp <= 0) {
+    killUnit(g, target);
+    line += ' — destroyed';
+  } else {
+    // Counterattack uses the defender's POST-damage hp. This is what makes
+    // units you could not activate this turn still dangerous.
+    var back = damage(g, target, unit);
+    unit.hp -= back;
+    line += '; counter ' + back;
+    if (unit.hp <= 0) { killUnit(g, unit); line += ' — attacker destroyed'; }
+  }
+  logMsg(g, line);
+  checkWin(g);
+  return true;
+}
+
+function playCapture(g, card, unit) {
+  if (!validPlay(g, card, unit)) return false;
+  if (!canCapture(g, unit, card)) return false;
+  var t = tileAt(g, unit.x, unit.y);
+  if (t.capBy !== unit.uid) { t.capBy = unit.uid; t.capProg = 0; }
+  t.capProg += unit.hp;
+  noteProgress(g);
+  var line = 'Capturing ' + TERRAIN[t.terrain].name + ' ' + Math.min(t.capProg, CAPTURE_TARGET) + '/' + CAPTURE_TARGET;
+  if (t.capProg >= CAPTURE_TARGET) {
+    t.owner = unit.owner; t.capBy = null; t.capProg = 0;
+    line = g.players[unit.owner].name + ' captures the ' + TERRAIN[t.terrain].name;
+  }
+  spend(g, card, unit);
+  logMsg(g, line);
+  checkWin(g);
+  return true;
+}
+
+function playDraw(g, card) {
+  if (g.winner !== null) return false;
+  var p = g.players[g.current];
+  if (p.playsLeft <= 0) return false;
+  if (p.hand.indexOf(card) < 0) return false;
+  if (cardDef(card).modes.indexOf('draw') < 0) return false;
+  spend(g, card, null);
+  // Draw one, ignoring the hand limit for this single card.
+  if (!p.draw.length && p.discard.length) {
+    p.draw = shuffle(p.discard, g.rnd); p.discard = [];
+  }
+  if (p.draw.length) p.hand.push(p.draw.pop());
+  logMsg(g, 'Command: draw a card');
+  return true;
+}
+
+function validPlay(g, card, unit) {
+  if (g.winner !== null) return false;
+  var p = g.players[g.current];
+  if (p.playsLeft <= 0) return false;
+  if (p.hand.indexOf(card) < 0) return false;
+  if (!unit || unit.owner !== g.current) return false;
+  if (unit.actedTurn === g.turn) return false;
+  if (!unitMatches(card, unit)) return false;
+  return true;
+}
+
+/* ---- win conditions -------------------------------------------------- */
+
+function checkWin(g) {
+  if (g.winner !== null) return g.winner;
+  for (var p = 0; p < 2; p++) {
+    var foe = 1 - p;
+    var hqLost = true;
+    for (var y = 0; y < g.h; y++) for (var x = 0; x < g.w; x++) {
+      var t = g.tiles[y][x];
+      if (t.terrain === 'hq' && t.owner === foe) hqLost = false;
+    }
+    var wiped = !g.units.some(function (u) { return u.owner === foe; });
+    if (hqLost) { g.winner = p; g.winReason = 'headquarters captured'; return p; }
+    if (wiped)  { g.winner = p; g.winReason = 'enemy army destroyed'; return p; }
+  }
+  return null;
+}
+
+/* ---- a card is "live" if it can do anything at all right now ---------- */
+
+function cardIsLive(g, card) {
+  var p = g.players[g.current];
+  if (p.playsLeft <= 0) return false;
+  if (cardDef(card).modes.indexOf('draw') >= 0) return true;
+  var us = eligibleUnits(g, card);
+  for (var i = 0; i < us.length; i++) {
+    if (legalMoves(g, us[i], card).length) return true;
+    if (legalAttacks(g, us[i], card).length) return true;
+    if (canCapture(g, us[i], card)) return true;
+  }
+  return false;
+}
+
+return {
+  TERRAIN:TERRAIN, UNITS:UNITS, CARDS:CARDS, SIDES:SIDES,
+  CAPTURE_TARGET:CAPTURE_TARGET, BASE_HAND:BASE_HAND, PLAYS_PER_TURN:PLAYS_PER_TURN,
+  STALE_TURNS:STALE_TURNS,
+  createGame:createGame, endTurn:endTurn,
+  tileAt:tileAt, unitAt:unitAt, unitByUid:unitByUid, cardByUid:cardByUid,
+  citiesOf:citiesOf, handLimit:handLimit, cardDef:cardDef,
+  eligibleUnits:eligibleUnits, legalMoves:legalMoves, legalAttacks:legalAttacks,
+  canCapture:canCapture, damage:damage, cardIsLive:cardIsLive,
+  playMove:playMove, playAttack:playAttack, playCapture:playCapture, playDraw:playDraw,
+  checkWin:checkWin, drawUpTo:drawUpTo, mulberry32:mulberry32,
+  removeCardsFor:removeCardsFor, unitCardCount:unitCardCount
+};
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = WD;
+</script>
+<script id="ui">
+/* =========================================================================
+   PRESENTATION + INPUT. Talks to WD, never reimplements a rule.
+   ========================================================================= */
+(function () {
+'use strict';
+if (typeof document === 'undefined') return;   // headless: engine only
+
+var TW = 64, TH = 46, ELEV = 7, UNIT_LIFT = 13, OX = 16, OY = 40;
+
+var PALETTE = {
+  plainA:'#7d8a5c', plainB:'#758255',
+  forest:'#4e6a41', forestSide:'#334729',
+  city:'#a3a69c',   citySide:'#71746b',
+  grid:'rgba(20,26,20,.20)',
+  owner:[ { top:'#b8453a', side:'#7d2820', ink:'#f4e2de' },
+          { top:'#3a6d94', side:'#22455f', ink:'#dfebf4' } ]
+};
+
+var cv = document.getElementById('board');
+var ctx = cv.getContext('2d');
+var el = {
+  sideDot:  document.getElementById('sideDot'),
+  sideName: document.getElementById('sideName'),
+  turnNo:   document.getElementById('turnNo'),
+  playsLeft:document.getElementById('playsLeft'),
+  handCount:document.getElementById('handCount'),
+  cityCount:document.getElementById('cityCount'),
+  drawCount:document.getElementById('drawCount'),
+  discCount:document.getElementById('discCount'),
+  handRow:  document.getElementById('handRow'),
+  handMeta: document.getElementById('handMeta'),
+  log:      document.getElementById('log'),
+  tip:      document.getElementById('tip'),
+  strip:    document.getElementById('actionStrip'),
+  handoff:  document.getElementById('handoff'),
+  handoffName: document.getElementById('handoffName'),
+  gameOver: document.getElementById('gameOver'),
+  goName:   document.getElementById('goName'),
+  goSub:    document.getElementById('goSub')
+};
+
+var g = null, selCard = null, selUnit = null, hideHand = false, hoverTile = null;
+
+/* ---- boot ----------------------------------------------------------- */
+
+function newGame() {
+  g = WD.createGame({ seed: (Math.random() * 1e9) | 0 });
+  selCard = null; selUnit = null; hideHand = false;
+  el.gameOver.classList.add('hidden');
+  el.handoff.classList.add('hidden');
+  refresh();
+}
+
+function sizeCanvas() {
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var w = OX * 2 + 12 * TW, h = OY + 8 * TH + 22;
+  cv.width = w * dpr; cv.height = h * dpr;
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+/* ---- geometry ------------------------------------------------------- */
+
+function tileTop(t) { return (t.terrain === 'plain') ? 0 : ELEV; }
+function sx(x) { return OX + x * TW; }
+function sy(y) { return OY + y * TH; }
+
+function pickTile(px, py) {
+  // Test bottom rows first so raised tiles in front win the hit.
+  for (var y = g.h - 1; y >= 0; y--) {
+    for (var x = 0; x < g.w; x++) {
+      var lift = tileTop(g.tiles[y][x]);
+      var l = sx(x), t = sy(y) - lift;
+      if (px >= l && px < l + TW && py >= t && py < t + TH) return { x:x, y:y };
+    }
+  }
+  return null;
+}
+
+/* ---- drawing -------------------------------------------------------- */
+
+function roundRect(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+
+function drawTile(t) {
+  var x = sx(t.x), lift = tileTop(t), y = sy(t.y) - lift;
+  var top, side;
+
+  if (t.terrain === 'plain') {
+    top = ((t.x + t.y) % 2) ? PALETTE.plainA : PALETTE.plainB; side = null;
+  } else if (t.terrain === 'forest') {
+    top = PALETTE.forest; side = PALETTE.forestSide;
+  } else {
+    top = PALETTE.city; side = PALETTE.citySide;
+  }
+
+  ctx.fillStyle = top;
+  ctx.fillRect(x, y, TW, TH);
+
+  if (side) { ctx.fillStyle = side; ctx.fillRect(x, y + TH, TW, lift); }
+
+  // ownership wash on cities and HQs
+  if ((t.terrain === 'city' || t.terrain === 'hq') && t.owner !== null) {
+    ctx.globalAlpha = t.terrain === 'hq' ? 0.72 : 0.5;
+    ctx.fillStyle = PALETTE.owner[t.owner].top;
+    ctx.fillRect(x, y, TW, TH);
+    ctx.fillStyle = PALETTE.owner[t.owner].side;
+    ctx.fillRect(x, y + TH, TW, lift);
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.strokeStyle = PALETTE.grid; ctx.lineWidth = 1;
+  ctx.strokeRect(x + .5, y + .5, TW - 1, TH - 1);
+
+  if (t.terrain === 'forest') drawTrees(x, y);
+  if (t.terrain === 'city')   drawBlocks(x, y, t);
+  if (t.terrain === 'hq')     drawHQ(x, y, t);
+
+  if (t.capProg > 0) {
+    var pct = Math.min(1, t.capProg / WD.CAPTURE_TARGET);
+    ctx.fillStyle = 'rgba(0,0,0,.45)';
+    ctx.fillRect(x + 8, y + TH - 9, TW - 16, 5);
+    ctx.fillStyle = '#d9b24c';
+    ctx.fillRect(x + 8, y + TH - 9, (TW - 16) * pct, 5);
+  }
+}
+
+function drawTrees(x, y) {
+  ctx.fillStyle = 'rgba(28,44,22,.55)';
+  var pts = [[16,15],[34,11],[47,20],[24,29],[40,30]];
+  for (var i = 0; i < pts.length; i++) {
+    ctx.beginPath();
+    ctx.ellipse(x + pts[i][0], y + pts[i][1], 8, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawBlocks(x, y, t) {
+  ctx.fillStyle = t.owner === null ? 'rgba(60,64,58,.5)' : 'rgba(20,20,18,.42)';
+  ctx.fillRect(x + 13, y + 12, 13, 20);
+  ctx.fillRect(x + 30, y + 17, 11, 15);
+  ctx.fillRect(x + 44, y + 9, 9, 23);
+}
+
+function drawHQ(x, y, t) {
+  ctx.fillStyle = 'rgba(18,18,16,.5)';
+  ctx.fillRect(x + 16, y + 12, 32, 22);
+  ctx.fillStyle = PALETTE.owner[t.owner].ink;
+  ctx.beginPath();
+  ctx.moveTo(x + 32, y + 6); ctx.lineTo(x + 46, y + 11); ctx.lineTo(x + 32, y + 16);
+  ctx.closePath(); ctx.fill();
+  ctx.fillRect(x + 31, y + 6, 2, 28);
+}
+
+function drawHighlights() {
+  if (!selCard || !selUnit || hideHand) return;
+  var moves = WD.legalMoves(g, selUnit, selCard);
+  ctx.save();
+  moves.forEach(function (m) {
+    var t = g.tiles[m.y][m.x], lift = tileTop(t);
+    ctx.fillStyle = 'rgba(120,200,255,.30)';
+    ctx.fillRect(sx(m.x), sy(m.y) - lift, TW, TH);
+    ctx.strokeStyle = 'rgba(170,225,255,.75)'; ctx.lineWidth = 2;
+    ctx.strokeRect(sx(m.x) + 1, sy(m.y) - lift + 1, TW - 2, TH - 2);
+  });
+  ctx.restore();
+}
+
+function drawUnit(u) {
+  var t = g.tiles[u.y][u.x];
+  var baseY = sy(u.y) - tileTop(t);
+  var cx = sx(u.x) + TW / 2, cy = baseY + TH / 2;
+  var w = 38, h = 24, lift = UNIT_LIFT;
+  var pal = PALETTE.owner[u.owner];
+  var spent = (u.owner === g.current && u.actedTurn === g.turn);
+
+  // shadow on the ground
+  ctx.fillStyle = 'rgba(0,0,0,.28)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 11, 19, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.globalAlpha = spent ? 0.5 : 1;
+
+  var top = cy - h / 2 - lift;
+  ctx.fillStyle = pal.side;
+  roundRect(ctx, cx - w / 2, top + 4, w, h + lift - 4, 5); ctx.fill();
+  ctx.fillStyle = pal.top;
+  roundRect(ctx, cx - w / 2, top, w, h, 5); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1;
+  roundRect(ctx, cx - w / 2 + .5, top + .5, w - 1, h - 1, 5); ctx.stroke();
+
+  // silhouette
+  ctx.fillStyle = pal.ink;
+  if (u.type === 'infantry') {
+    ctx.beginPath(); ctx.arc(cx, top + 9, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillRect(cx - 4, top + 14, 8, 7);
+  } else {
+    ctx.fillRect(cx - 12, top + 12, 24, 8);
+    ctx.fillRect(cx - 7, top + 6, 12, 6);
+    ctx.fillRect(cx + 3, top + 8, 14, 2);
+  }
+
+  if (u.hp < WD.UNITS[u.type].maxHp) {
+    ctx.font = '600 15px "Barlow Condensed", sans-serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#101312';
+    ctx.fillText(u.hp, cx + w / 2 + 1, top + h + 3);
+    ctx.fillStyle = '#ffe9a8';
+    ctx.fillText(u.hp, cx + w / 2, top + h + 2);
+  }
+  ctx.globalAlpha = 1;
+
+  // selection / target rings
+  var ring = null;
+  if (selUnit === u) ring = '#ffd873';
+  else if (selCard && selUnit && WD.legalAttacks(g, selUnit, selCard).indexOf(u) >= 0) ring = '#ff7a5e';
+  else if (selCard && !selUnit && !hideHand &&
+           WD.eligibleUnits(g, selCard).indexOf(u) >= 0) ring = '#9fe1ff';
+  if (ring) {
+    ctx.strokeStyle = ring; ctx.lineWidth = 2.5;
+    roundRect(ctx, cx - w / 2 - 3, top - 3, w + 6, h + lift + 4, 7);
+    ctx.stroke();
+  }
+}
+
+function drawCaptureBadge() {
+  if (!selCard || !selUnit || hideHand) return;
+  if (!WD.canCapture(g, selUnit, selCard)) return;
+  var t = g.tiles[selUnit.y][selUnit.x];
+  ctx.strokeStyle = '#d9b24c'; ctx.lineWidth = 3;
+  ctx.strokeRect(sx(selUnit.x) + 2, sy(selUnit.y) - tileTop(t) + 2, TW - 4, TH - 4);
+}
+
+function render() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  for (var y = 0; y < g.h; y++) for (var x = 0; x < g.w; x++) drawTile(g.tiles[y][x]);
+  drawHighlights();
+  drawCaptureBadge();
+  g.units.slice().sort(function (a, b) { return a.y - b.y || a.x - b.x; }).forEach(drawUnit);
+}
+
+/* ---- hand ----------------------------------------------------------- */
+
+function cardEl(card) {
+  var d = WD.cardDef(card);
+  var node = document.createElement('div');
+  node.className = 'card';
+  var live = WD.cardIsLive(g, card);
+  if (!live) node.classList.add('dead');
+  if (selCard === card) node.classList.add('sel');
+
+  var tint = d.cls === 'infantry' ? '#6f7f4f' : d.cls === 'tank' ? '#8a5a33' : '#5a6b7a';
+  var modeText = d.modes.map(function (m) {
+    if (m === 'move') {
+      var base = d.cls === 'any' ? 'half speed' : Math.floor(WD.UNITS[d.cls].move * d.moveMult);
+      return 'Move ' + base;
+    }
+    if (m === 'attack')  return 'Attack adjacent';
+    if (m === 'capture') return 'Capture';
+    if (m === 'draw')    return 'Draw a card';
+    return m;
+  }).map(function (s) { return '<span>' + s + '</span>'; }).join('');
+
+  node.innerHTML =
+    '<div class="stripe" style="background:' + tint + '"></div>' +
+    '<div class="nm">' + d.name + '</div>' +
+    '<div class="cls">' + (d.cls === 'any' ? 'Any unit' : WD.UNITS[d.cls].name + ' only') + '</div>' +
+    '<div class="modes">' + modeText + '</div>';
+
+  node.addEventListener('click', function () {
+    if (g.winner !== null || hideHand) return;
+    if (selCard === card) { selCard = null; selUnit = null; }
+    else {
+      selCard = card; selUnit = null;
+      var elig = WD.eligibleUnits(g, card);
+      if (elig.length === 1) selUnit = elig[0];
+    }
+    refresh();
+  });
+  return node;
+}
+
+function renderHand() {
+  el.handRow.innerHTML = '';
+  var p = g.players[g.current];
+  if (hideHand) {
+    el.handMeta.textContent = 'Hand hidden until ' + p.name + ' starts the turn.';
+    return;
+  }
+  p.hand.forEach(function (c) { el.handRow.appendChild(cardEl(c)); });
+  var lim = WD.handLimit(g, g.current);
+  var dead = p.hand.filter(function (c) { return !WD.cardIsLive(g, c); }).length;
+  el.handMeta.textContent =
+    'Unplayed cards stay in hand. Next turn you draw up to ' + lim +
+    ', so holding ' + p.hand.length + ' means seeing ' + Math.max(0, lim - p.hand.length) + ' new.' +
+    (dead ? '  ' + dead + ' card' + (dead > 1 ? 's have' : ' has') + ' no legal play right now.' : '');
+}
+
+/* ---- action strip --------------------------------------------------- */
+
+function renderStrip() {
+  el.strip.innerHTML = '';
+  var shown = false;
+  if (selCard && !hideHand && g.winner === null) {
+    if (selUnit && WD.canCapture(g, selUnit, selCard)) {
+      shown = true;
+      el.strip.appendChild(mkBtn('Capture this tile', 'go', function () {
+        WD.playCapture(g, selCard, selUnit); selCard = null; selUnit = null; refresh();
+      }));
+    }
+    if (WD.cardDef(selCard).modes.indexOf('draw') >= 0) {
+      shown = true;
+      el.strip.appendChild(mkBtn('Discard for a card', '', function () {
+        WD.playDraw(g, selCard); selCard = null; selUnit = null; refresh();
+      }));
+    }
+    if (shown) el.strip.appendChild(mkBtn('Cancel', '', function () {
+      selCard = null; selUnit = null; refresh();
+    }));
+  }
+  el.strip.classList.toggle('hidden', !shown);
+}
+
+function mkBtn(label, cls, fn) {
+  var b = document.createElement('button');
+  b.textContent = label; if (cls) b.className = cls;
+  b.addEventListener('click', fn);
+  return b;
+}
+
+/* ---- tips ----------------------------------------------------------- */
+
+function tipText() {
+  if (g.winner !== null) return '';
+  var p = g.players[g.current];
+  if (hideHand) return '';
+  if (p.playsLeft <= 0) return 'No plays left. End the turn — anything still in hand carries over.';
+  if (!selCard) return 'Pick a card. It names a unit class, so it can activate any one of your units of that class that has not acted yet.';
+  if (!selUnit) return 'Choose which unit spends this card. Units already ringed can act.';
+  var mv = WD.legalMoves(g, selUnit, selCard).length;
+  var at = WD.legalAttacks(g, selUnit, selCard).length;
+  return 'Move to a lit tile' + (at ? ', or click an enemy in range to attack' : '') +
+         '. One card does one thing: move or attack, not both.' + (mv ? '' : ' No moves available.');
+}
+
+/* ---- refresh -------------------------------------------------------- */
+
+function refresh() {
+  var p = g.players[g.current];
+  var pal = WD.SIDES[g.current].key === 'red' ? '#b8453a' : '#3a6d94';
+  el.sideDot.style.background = pal;
+  el.sideName.textContent = p.name;
+  el.turnNo.textContent = g.turn;
+  el.playsLeft.textContent = p.playsLeft;
+  el.handCount.textContent = p.hand.length + '/' + WD.handLimit(g, g.current);
+  el.cityCount.textContent = WD.citiesOf(g, g.current);
+  el.drawCount.textContent = p.draw.length;
+  el.discCount.textContent = p.discard.length;
+
+  el.log.innerHTML = g.log.map(function (l) { return '<div>' + l + '</div>'; }).join('');
+  el.tip.textContent = tipText();
+
+  if (selUnit && (g.units.indexOf(selUnit) < 0 || selUnit.actedTurn === g.turn)) selUnit = null;
+  if (selCard && p.hand.indexOf(selCard) < 0) { selCard = null; selUnit = null; }
+
+  renderHand();
+  renderStrip();
+  render();
+
+  if (g.winner !== null) {
+    el.goName.textContent = g.winner === -1 ? 'Stalemate' : g.players[g.winner].name + ' wins';
+    el.goSub.textContent = 'Turn ' + g.turn + ' — ' + g.winReason + '.';
+    el.gameOver.classList.remove('hidden');
+  }
+}
+
+/* ---- input ---------------------------------------------------------- */
+
+cv.addEventListener('click', function (ev) {
+  if (!g || g.winner !== null || hideHand) return;
+  var r = cv.getBoundingClientRect();
+  var px = (ev.clientX - r.left) * (parseFloat(cv.style.width) / r.width);
+  var py = (ev.clientY - r.top) * (parseFloat(cv.style.height) / r.height);
+  var hit = pickTile(px, py);
+  if (!hit) return;
+  handleTileClick(hit.x, hit.y);
+});
+
+function handleTileClick(x, y) {
+  var u = WD.unitAt(g, x, y);
+
+  if (!selCard) {                                  // no card: inspect only
+    selUnit = (u && u.owner === g.current) ? u : null;
+    refresh(); return;
+  }
+  if (!selUnit) {
+    if (u && WD.eligibleUnits(g, selCard).indexOf(u) >= 0) selUnit = u;
+    refresh(); return;
+  }
+  if (u === selUnit) { selUnit = null; refresh(); return; }
+
+  if (u && WD.legalAttacks(g, selUnit, selCard).indexOf(u) >= 0) {
+    WD.playAttack(g, selCard, selUnit, u);
+    selCard = null; selUnit = null; refresh(); return;
+  }
+  if (!u && WD.legalMoves(g, selUnit, selCard).some(function (m) { return m.x === x && m.y === y; })) {
+    WD.playMove(g, selCard, selUnit, x, y);
+    selCard = null; selUnit = null; refresh(); return;
+  }
+  if (u && WD.eligibleUnits(g, selCard).indexOf(u) >= 0) { selUnit = u; refresh(); return; }
+  refresh();
+}
+
+document.getElementById('endTurn').addEventListener('click', function () {
+  if (!g || g.winner !== null) return;
+  WD.endTurn(g);
+  selCard = null; selUnit = null;
+  if (g.winner === null) {
+    hideHand = true;
+    el.handoffName.textContent = g.players[g.current].name + "'s turn";
+    el.handoff.classList.remove('hidden');
+  }
+  refresh();
+});
+
+document.getElementById('handoffGo').addEventListener('click', function () {
+  hideHand = false;
+  el.handoff.classList.add('hidden');
+  refresh();
+});
+
+document.getElementById('newGame').addEventListener('click', newGame);
+document.getElementById('goAgain').addEventListener('click', newGame);
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') { selCard = null; selUnit = null; refresh(); }
+  if (e.key === 'Enter' && g && g.winner === null && !hideHand) {
+    document.getElementById('endTurn').click();
+  }
+});
+
+window.addEventListener('resize', function () { sizeCanvas(); if (g) render(); });
+
+sizeCanvas();
+newGame();
+window.__game = function () { return g; };
+})();
+</script>
+</body>
+</html>
